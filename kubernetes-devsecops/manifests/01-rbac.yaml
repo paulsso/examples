@@ -1,0 +1,45 @@
+# Chapter 4/12 — RBAC: least privilege as configuration.
+#
+# Three rules of Kubernetes RBAC hygiene, all encoded here:
+#
+#  1. Every workload gets its OWN ServiceAccount — never `default`.
+#     Shared identities make audit logs useless and privileges sticky.
+#  2. Tokens are NOT mounted unless the app actually calls the API
+#     (automountServiceAccountToken: false). A stolen shell in a pod
+#     without a token cannot talk to the API server at all.
+#  3. Grants are namespaced Roles with explicit verbs on explicit
+#     resources. `cluster-admin` bindings and wildcard verbs ("*") are
+#     how demo clusters become breach write-ups.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: web-sa
+  namespace: devsecops
+automountServiceAccountToken: false
+---
+# The app reads ONE ConfigMap. So the role grants: get, on configmaps,
+# in this namespace. Nothing else — not list, not watch, not secrets.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: web-config-reader
+  namespace: devsecops
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["web-config"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: web-config-reader
+  namespace: devsecops
+subjects:
+  - kind: ServiceAccount
+    name: web-sa
+    namespace: devsecops
+roleRef:
+  kind: Role
+  name: web-config-reader
+  apiGroup: rbac.authorization.k8s.io

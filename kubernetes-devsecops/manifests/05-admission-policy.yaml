@@ -1,0 +1,62 @@
+# Chapter 7/12 — policy as code, natively: ValidatingAdmissionPolicy.
+#
+# Since Kubernetes 1.30 the API server can evaluate CEL (Common
+# Expression Language) rules on every write — no webhook, no external
+# controller. These three rules reject the most common supply-chain and
+# privilege mistakes AT ADMISSION, cluster-wide, regardless of who (or
+# which pipeline) applies them. Kyverno / OPA Gatekeeper add mutation,
+# generation, and richer policy libraries on top of the same idea.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: devsecops-baseline
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["apps"]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["deployments", "statefulsets", "daemonsets"]
+  validations:
+    # Rule 1 — supply chain: images must be pinned; :latest (explicit or
+    # implied by a missing tag) is unreproducible and unreviewable.
+    - expression: >-
+        object.spec.template.spec.containers.all(c,
+          c.image.contains(':') && !c.image.endsWith(':latest'))
+      message: "images must be pinned to a tag or digest (never :latest)"
+
+    # Rule 2 — no privileged containers, ever. Privileged = the kernel
+    # with extra steps; there is no web-service reason for it.
+    - expression: >-
+        object.spec.template.spec.containers.all(c,
+          !has(c.securityContext) || !has(c.securityContext.privileged)
+          || c.securityContext.privileged == false)
+      message: "privileged containers are forbidden"
+
+    # Rule 3 — every container must run as non-root (settable at pod or
+    # container level; either satisfies the rule).
+    - expression: >-
+        (has(object.spec.template.spec.securityContext) &&
+         has(object.spec.template.spec.securityContext.runAsNonRoot) &&
+         object.spec.template.spec.securityContext.runAsNonRoot == true)
+        || object.spec.template.spec.containers.all(c,
+             has(c.securityContext) &&
+             has(c.securityContext.runAsNonRoot) &&
+             c.securityContext.runAsNonRoot == true)
+      message: "workloads must set runAsNonRoot: true"
+---
+# The binding decides WHERE the policy applies. Scoping by label lets
+# teams opt namespaces into enforcement gradually — warn first, then
+# enforce (same rollout thinking as Pod Security Admission).
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: devsecops-baseline
+spec:
+  policyName: devsecops-baseline
+  validationActions: ["Deny"]
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        app.kubernetes.io/part-of: devsecops-course

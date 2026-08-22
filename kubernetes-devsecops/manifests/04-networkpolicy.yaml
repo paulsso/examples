@@ -1,0 +1,63 @@
+# Chapter 5/12 — NetworkPolicies: default deny, then earn each flow.
+#
+# Without policies, every pod can talk to every pod in the cluster — a
+# single compromised container gets free lateral movement to databases,
+# internal APIs, and the cloud metadata endpoint. The pattern is always
+# the same: one default-deny for the namespace, then explicit, minimal
+# allows. (Policies need a CNI that enforces them: Calico, Cilium, etc.)
+#
+# Deny ALL ingress and egress for every pod in the namespace:
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: devsecops
+spec:
+  podSelector: {}              # empty selector = every pod here
+  policyTypes: ["Ingress", "Egress"]
+---
+# Allow: DNS resolution (or nothing with a name works). Scoped to
+# kube-dns pods on port 53 — not "all UDP anywhere".
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns
+  namespace: devsecops
+spec:
+  podSelector: {}
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+# Allow: ingress to the web pods ONLY from the ingress controller's
+# namespace, only on the app port. Peers other than the ingress
+# controller — including other pods in this namespace — stay blocked.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-web-from-ingress
+  namespace: devsecops
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: web
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8080

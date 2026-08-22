@@ -1,0 +1,56 @@
+# Chapter 3/12 — Pod Security Admission: the cluster's seatbelt.
+#
+# These labels make the API server itself ENFORCE the "restricted" Pod
+# Security Standard for every pod in the namespace: no root, no privilege
+# escalation, seccomp required, capabilities dropped. A pod that violates
+# the profile is REJECTED at admission — before it ever runs.
+#
+#   enforce  = reject violating pods
+#   audit    = record violations in the audit log
+#   warn     = warn the kubectl user on apply
+#
+# Pinning the profile VERSION (not "latest") keeps a cluster upgrade from
+# silently changing what is enforced — the same pinning discipline as
+# container images (Chapter 2).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: devsecops
+  labels:
+    app.kubernetes.io/part-of: devsecops-course
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: v1.31
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+---
+# Chapter 9/12 — quotas bound the blast radius of a compromise (or a bug):
+# a hijacked deployment cannot fork-bomb the cluster into 10,000 miners.
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: devsecops-quota
+  namespace: devsecops
+spec:
+  hard:
+    requests.cpu: "4"
+    requests.memory: 2Gi
+    limits.cpu: "8"
+    limits.memory: 4Gi
+    pods: "20"
+---
+# A LimitRange fills in defaults so no pod can slip through with no
+# resource bounds at all (defense in depth with the audit rule R7).
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: devsecops-limits
+  namespace: devsecops
+spec:
+  limits:
+    - type: Container
+      defaultRequest:
+        cpu: 50m
+        memory: 32Mi
+      default:
+        cpu: 250m
+        memory: 128Mi
