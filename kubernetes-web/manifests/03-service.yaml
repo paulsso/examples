@@ -1,0 +1,23 @@
+# Chapter 4/12 — the Service: one stable name in front of N ephemeral pods.
+#
+# Pods come and go (scaling, rollouts, node failures); their IPs are
+# meaningless. The Service gives a stable virtual IP and DNS name
+# (web.web-course.svc.cluster.local) and load-balances across every pod
+# that matches the selector AND passes its readiness probe — readiness is
+# how pods join and leave rotation.
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  namespace: web-course
+  labels:
+    app.kubernetes.io/name: web
+spec:
+  type: ClusterIP            # in-cluster only; Ingress exposes it (Ch11).
+                             # NodePort/LoadBalancer are the other rungs.
+  selector:
+    app.kubernetes.io/name: web
+  ports:
+    - name: http
+      port: 80               # the port clients use
+      targetPort: http       # the container port it maps to (by name)

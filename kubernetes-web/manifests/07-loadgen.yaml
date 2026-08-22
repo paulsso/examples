@@ -1,0 +1,43 @@
+# Chapter 9/12 — the load generator for the autoscaling demo.
+#
+# A Job runs pods to completion. Four parallel workers hammer the
+# Service's CPU-burning /work endpoint through its DNS name; within a
+# minute or two metrics-server reports CPU above the HPA target and
+# replicas climb from 2-3 toward the load. Delete the job and watch the
+# slow, stabilized scale-down (the HPA behavior block in 04-hpa.yaml).
+#
+# Run it with:  kubectl apply -f manifests/07-loadgen.yaml
+# Watch with :  kubectl -n web-course get hpa,pods -w
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: loadgen
+  namespace: web-course
+spec:
+  parallelism: 4
+  completions: 4
+  backoffLimit: 1
+  activeDeadlineSeconds: 300     # hard stop: a load test must never be
+                                 # able to run forever by accident
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: loadgen
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: loadgen
+          image: busybox:1.36
+          command: ["/bin/sh", "-c"]
+          args:
+            - >
+              for i in $(seq 1 3000); do
+                wget -q -O- http://web/work > /dev/null 2>&1;
+              done
+          resources:
+            requests:
+              cpu: 50m
+              memory: 16Mi
+            limits:
+              cpu: 200m
+              memory: 32Mi

@@ -1,0 +1,39 @@
+# Chapter 9/12 — the Horizontal Pod Autoscaler: capacity follows load.
+#
+# The HPA compares live pod CPU usage (from metrics-server) against the
+# target percentage OF THE POD'S CPU REQUEST and adjusts replicas:
+#   desired = ceil(current * usage / target)
+# Requires: metrics-server installed, and CPU requests set (Ch6) — an HPA
+# percentage without a request is undefined.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: web
+  namespace: web-course
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: web
+  minReplicas: 2               # never below the availability floor
+  maxReplicas: 10              # never above the budget ceiling
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70    # scale out at 70% of the 100m request
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0     # react to spikes immediately
+      policies:
+        - type: Percent
+          value: 100                     # at most double per 30s
+          periodSeconds: 30
+    scaleDown:
+      stabilizationWindowSeconds: 120    # but scale down slowly —
+      policies:                          # flapping is worse than
+        - type: Pods                     # brief overprovisioning
+          value: 1
+          periodSeconds: 60
