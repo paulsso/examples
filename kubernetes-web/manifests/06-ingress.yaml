@@ -1,0 +1,36 @@
+# Chapter 11/12 — Ingress: HTTP(S) from the outside world to the Service.
+#
+# An Ingress is only data; an ingress CONTROLLER (nginx, traefik, cloud
+# LBs) reads it and programs the actual proxy. One controller + one
+# LoadBalancer IP serves every web service in the cluster — that's the
+# economic point of Ingress vs one cloud LB per Service.
+#
+# On kind: install ingress-nginx first (see Makefile's `ingress` target),
+# then `curl -H "Host: web.example.local" http://localhost/`.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: web
+  namespace: web-course
+  annotations:
+    # Controller-specific tuning happens in annotations, e.g. canary
+    # releases (nginx.ingress.kubernetes.io/canary: "true" + canary-weight)
+    # or per-route timeouts. The Gateway API is the typed successor.
+    nginx.ingress.kubernetes.io/proxy-body-size: "1m"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: web.example.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web
+                port:
+                  name: http
+  # TLS in production: point at a Secret managed by cert-manager —
+  #   tls:
+  #     - hosts: [web.example.com]
+  #       secretName: web-tls

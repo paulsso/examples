@@ -1,0 +1,20 @@
+# Chapter 10/12 — the PodDisruptionBudget: availability during maintenance.
+#
+# Node drains (upgrades, spot reclaims, cluster-autoscaler scale-down) are
+# VOLUNTARY disruptions, and they respect PDBs: the eviction API refuses
+# to take the service below the budget. Without one, a routine node
+# upgrade can evict every replica at once.
+#
+# minAvailable must be LESS than normal replica count, or drains block
+# forever — a PDB of minAvailable: N with N replicas makes nodes
+# undrainable (a real and common outage-of-operations bug).
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: web
+  namespace: web-course
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: web

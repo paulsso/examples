@@ -1,0 +1,28 @@
+# Chapter 3/12 — Namespaces: the unit of isolation.
+#
+# Everything the course deploys lives in one namespace: its own DNS scope,
+# its own quota boundary, one `kubectl delete namespace` to clean up.
+# Per-team or per-environment namespaces are the first scaling decision
+# most organizations make.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: web-course
+  labels:
+    app.kubernetes.io/part-of: web-course
+---
+# A ResourceQuota caps what the namespace may consume IN TOTAL — the
+# guard rail that stops one team's runaway autoscaler from starving the
+# cluster. Requests/limits per pod come in Chapter 6; this is the sum.
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: web-course-quota
+  namespace: web-course
+spec:
+  hard:
+    requests.cpu: "4"
+    requests.memory: 2Gi
+    limits.cpu: "8"
+    limits.memory: 4Gi
+    pods: "30"

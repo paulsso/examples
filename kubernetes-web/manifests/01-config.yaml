@@ -1,0 +1,29 @@
+# Chapter 7/12 — Configuration lives OUTSIDE the image.
+#
+# The same image runs in dev, staging and prod; only this object changes.
+# Changing a value here and restarting the rollout reconfigures the fleet
+# without rebuilding anything (12-factor III: config in the environment).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: web-config
+  namespace: web-course
+data:
+  GREETING: "hello from kubernetes"
+  VERSION: "1.0"
+  READY_DELAY_SECONDS: "2"
+  DRAIN_SECONDS: "3"
+---
+# Secrets are for credentials — but note: base64 is ENCODING, not
+# encryption. Real clusters add encryption-at-rest, RBAC that restricts
+# `get secret`, and usually an external manager (Vault, cloud KMS,
+# external-secrets-operator). This one is a placeholder to demonstrate
+# the wiring.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: web-secret
+  namespace: web-course
+type: Opaque
+stringData:
+  API_TOKEN: "demo-token-not-a-real-secret"
