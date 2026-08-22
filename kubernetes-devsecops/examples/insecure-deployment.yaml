@@ -1,0 +1,56 @@
+# ============================================================================
+# THE COUNTER-EXAMPLE — everything wrong at once. DO NOT DEPLOY.
+#
+# This is what `kubectl create deployment` plus a few "just make it work"
+# StackOverflow answers produces. It is syntactically valid Kubernetes —
+# kubeconform passes it happily, because schema validation checks SHAPE,
+# not POLICY. That gap is the reason DevSecOps pipelines add a policy
+# layer: `make audit-bad` runs tools/audit.py against this file and
+# catches every problem; the Pod Security Admission labels and the CEL
+# admission policy in manifests/ would each reject it at the API server.
+#
+# Every violation is numbered; tools/audit.py reports the matching rule.
+# ============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: legacy-app
+  namespace: devsecops
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: legacy-app
+  template:
+    metadata:
+      labels:
+        app: legacy-app
+    spec:
+      hostNetwork: true               # V1: shares the node's network —
+                                      #     sniffs node traffic, binds node ports
+      hostPID: true                   # V2: sees/signals every process on the node
+      # V3: no dedicated ServiceAccount (runs as `default`) and the API
+      #     token is auto-mounted — a shell here can call the API server.
+      containers:
+        - name: app
+          image: nginx:latest        # V4: unpinned :latest — unreproducible,
+                                      #     changes under you on every pull
+          securityContext:
+            privileged: true          # V5: full kernel access; container
+                                      #     isolation is now decorative
+            runAsUser: 0              # V6: root — escape CVEs become node root
+          # V7: no resource requests/limits — can starve the node (and
+          #     under quota-less namespaces, the cluster)
+          # V8: no liveness/readiness probes — wedged pods keep receiving
+          #     traffic, failures hide
+          # V9: no seccomp profile — every syscall available
+          # V10: no capability drop, no allowPrivilegeEscalation: false
+          # V11: writable root filesystem — attackers can drop tools
+          #      and persist
+          volumeMounts:
+            - name: host-root
+              mountPath: /host
+      volumes:
+        - name: host-root
+          hostPath:                   # V12: mounts the NODE's root
+            path: /                   #      filesystem into the pod

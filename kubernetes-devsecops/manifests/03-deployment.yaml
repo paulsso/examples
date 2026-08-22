@@ -1,0 +1,115 @@
+# Chapters 2, 3, 6 — the hardened workload. This Deployment passes the
+# "restricted" Pod Security Standard, every rule in tools/audit.py, and
+# the CEL admission policy in 05-admission-policy.yaml. Every hardening
+# field is commented with what attack it blunts.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: devsecops
+  labels:
+    app.kubernetes.io/name: web
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: web
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: web
+    spec:
+      # Ch4: dedicated identity, and no API token in the filesystem —
+      # a compromised container has nothing to call the API server with.
+      serviceAccountName: web-sa
+      automountServiceAccountToken: false
+
+      securityContext:
+        # Ch3: root in a container is root against the kernel. If a
+        # container-escape CVE lands, uid 0 makes it a node compromise.
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        # Syscall filtering: RuntimeDefault blocks the exotic syscalls
+        # (kernel keyring, bpf, mount...) that escape exploits live on.
+        seccompProfile:
+          type: RuntimeDefault
+
+      containers:
+        - name: web
+          # Ch2 supply chain: an unprivileged image from a known publisher,
+          # pinned to a VERSION — never :latest (unreproducible deploys,
+          # unreviewable changes). Production pins the digest, which is
+          # immune even to tag re-pushes:
+          #   image: nginxinc/nginx-unprivileged@sha256:<digest>
+          image: nginxinc/nginx-unprivileged:1.27-alpine
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+
+          envFrom:
+            - configMapRef:
+                name: web-config
+
+          securityContext:
+            # Blocks setuid binaries and exec-based privilege gain.
+            allowPrivilegeEscalation: false
+            # Ch8 runtime: an attacker who lands here cannot modify the
+            # binary, drop tools, or persist — the filesystem is a brick.
+            readOnlyRootFilesystem: true
+            # Start from zero kernel capabilities; this app needs none.
+            capabilities:
+              drop: ["ALL"]
+
+          # readOnlyRootFilesystem means the few paths nginx legitimately
+          # writes must be explicit, size-bounded scratch space:
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: cache
+              mountPath: /var/cache/nginx
+            # Ch6: the secret arrives as a FILE (not an env var), read-only.
+            - name: api-token
+              mountPath: /etc/secrets
+              readOnly: true
+
+          # Probes and resources: operational hygiene is also security —
+          # a fleet that self-heals and cannot overconsume is a fleet whose
+          # anomalies stand out (Ch8).
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 16Mi
+        - name: cache
+          emptyDir:
+            sizeLimit: 64Mi
+        - name: api-token
+          secret:
+            secretName: web-api-token
