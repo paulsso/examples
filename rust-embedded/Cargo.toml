@@ -1,0 +1,16 @@
+[package]
+name = "embedded-rust-course"
+version = "0.1.0"
+edition = "2021"
+
+# No dependencies on purpose: every pattern in the course — typestate pins,
+# HAL traits, heapless buffers, fixed-point math — is built from scratch so
+# students see exactly what the ecosystem crates (embedded-hal, heapless,
+# fixed) do under the hood.
+[dependencies]
+
+# Name the binary `main` so the Makefile's contract matches the other
+# courses in this repository.
+[[bin]]
+name = "main"
+path = "src/main.rs"
