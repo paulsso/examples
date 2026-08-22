@@ -1,0 +1,68 @@
+# High Performance Python for Audio Processing
+
+A course that teaches **high performance Python** through **audio
+processing**: every chapter processes real signal data, *measures* how long
+it takes, and then makes it faster. All audio is synthesized (no assets
+needed), and every run writes `.wav` files into `out/` that you can listen
+to.
+
+The performance ladder:
+
+```
+pure Python  →  vectorized NumPy  →  right dtypes, no copies
+             →  better ALGORITHMS (FFT)  →  streaming under a deadline
+             →  profiling; native code only as the last resort
+```
+
+## Chapters
+
+1. **Digital audio in pure Python** — samples, Nyquist, dBFS, WAV by hand
+2. **The cost of pure Python** — measuring the interpreter tax (1M samples)
+3. **Vectorization with NumPy** — the ~50–100× free speedup
+4. **dtypes & memory** — float64/float32/int16, bandwidth, the promotion trap
+5. **Views, copies, in-place** — allocation is the silent killer
+6. **A synthesis toolbox** — oscillators, ADSR envelopes, chords, an arpeggio
+7. **Filters** — one algorithm, three speeds: complexity *and* constants (plus the sequential IIR exception)
+8. **The FFT** — O(n²) → O(n log n): a measured ~10,000× at n=1024, then note detection
+9. **Spectral denoising** — STFT with zero-copy framing, spectral gating, overlap-add: +15 dB SNR in ~9 ms
+10. **An effects chain** — echo, distortion, tremolo: ~2000× faster than real time
+11. **Streaming & real time** — block processing with state, the 11.6 ms deadline, worst-block analysis
+12. **Profiling & the playbook** — cProfile the hotspot, fix it, and the 5-step optimization order
+
+Every function is documented in [DOCUMENTATION.md](DOCUMENTATION.md), with
+the concepts, the numbers to expect, and pointers to the production
+ecosystem (scipy.signal, librosa, sounddevice, numba).
+
+## Running
+
+Requires Python 3.10+ and NumPy (the only dependency).
+
+```bash
+make deps   # python3 -m pip install -r requirements.txt
+make run    # run all 12 chapters (~2 seconds)
+make clean  # remove generated audio and caches
+```
+
+Timing output varies by machine — **the ratios are the lesson**, not the
+absolute numbers.
+
+## Listen to your work
+
+Each run writes to `out/`:
+
+| File | Made by | What you hear |
+|---|---|---|
+| `tone.wav` | Ch 1 | a 440 Hz sine, built sample-by-sample |
+| `chord.wav` | Ch 6 | an A-major triad (three mixed sines) |
+| `arpeggio.wav` | Ch 6 | four ADSR-enveloped notes |
+| `noisy.wav` / `denoised.wav` | Ch 9 | the chord drowned in noise, then spectrally gated |
+| `effects.wav` | Ch 10 | the arpeggio through echo → distortion → tremolo |
+
+## Layout
+
+| File | Purpose |
+|---|---|
+| `main.py` | All 12 chapters, one runnable file |
+| `DOCUMENTATION.md` | Written explanation of every chapter and function |
+| `Makefile` | `run`, `deps`, `clean` |
+| `requirements.txt` | numpy |
