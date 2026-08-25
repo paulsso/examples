@@ -1,0 +1,47 @@
+* ============================================================================
+* ch02-blocks.cir — Op-amp building blocks for synthesis
+* ============================================================================
+* Subcircuits demonstrated (build each as its own Qucs-S schematic sheet):
+*
+* 1) Inverting summer (mixer)
+*        R1       Rf
+*   V1 --/\/--+--/\/--+-- Vout = −Rf(V1/R1 + V2/R2)
+*             |       |
+*        R2   |      [op]
+*   V2 --/\/--+      |
+*                    GND (non-inv)
+*
+* 2) Integrator
+*        R         C
+*   Vin --/\/--+--||--+-- Vout = −(1/RC)∫Vin dt
+*              |      |
+*             [op]----+
+*
+* 3) Schmitt trigger (non-inverting, hysteresis ±Vsat/2 with equal R)
+*              Rf
+*   Vin --/\/--+--/\/--+-- Vout (±Vsat)
+*              |       |
+*             [op]-----+  (positive feedback)
+*
+* 4) Precision half-wave rectifier
+*   Vin → op-amp + diode → Vout = max(Vin, 0)
+*
+* Component values for the integrator demo: R=10k, C=10n → τ=100 µs.
+* Schmitt: R1=R2=10k, Vsat≈±10 V → thresholds ≈ ±5 V.
+* ============================================================================
+
+.TITLE ch02 op-amp building blocks
+
+VDD vdd 0 DC 12
+VSS vss 0 DC -12
+
+* --- Integrator transient demo ---
+VIN_INT vin_int 0 PULSE(0 1 0 1n 1n 2m 4m)
+RINT vin_int n_int 10k
+CINT n_int vout_int 10n
+* Ideal inverting op-amp: V(n_int) held at virtual ground via high gain
+EINT vout_int 0 0 n_int 1e6
+
+.TRAN 1u 1m
+.PRINT TRAN V(vout_int) V(vin_int)
+.END

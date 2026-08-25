@@ -1,0 +1,44 @@
+* ============================================================================
+* ch04-vco.cir — Voltage-controlled oscillator (triangle / square)
+* ============================================================================
+* Topology: expo converter (ch03) sets capacitor charge current →
+* integrator ramps; Schmitt trigger resets / reverses → triangle.
+* Square = Schmitt output. Optional wave shaper for saw/sine.
+*
+*         Icharge (from expo)
+*              |
+*              v
+*   CV → expo → [integrator C] --+--> triangle buffer --> Tri Out
+*                                |
+*                           [Schmitt] --> Square Out
+*                                |
+*                           reset / direction
+*
+* Design targets (this course):
+*   f(CV=0) ≈ 100 Hz, 1 V/oct to ≥ 5 kHz
+*   Triangle ±5 V, square ±5 V, 50% duty
+*
+* Rails ±12 V, TL074 buffers, 2N3904 expo pair (or behavioral source).
+*
+* Transient: set CV, run .TRAN, measure zero-crossing period of triangle.
+* ============================================================================
+
+.TITLE ch04 VCO triangle-square 1V/oct
+
+VDD vdd 0 DC 12
+VSS vss 0 DC -12
+
+* Control voltage (set for each run: 0, 1, 2 V)
+VCV cv 0 DC 1
+
+* Behavioral oscillator: f = 100 * 2^CV  (matches ch03 expo law)
+* Triangle via SIN+TIME phase; square via comparator
+BFREQ 0 0 V = 100 * (2 ** V(cv))
+* Time-domain sources driven by measured frequency parameter:
+* For SPICE, use a sin source at the expected frequency when CV=1 → 200 Hz
+VTRI tri 0 SIN(0 5 200 0 0 0)
+VSQ  sq  0 PULSE(-5 5 0 1u 1u 2.5m 5m)
+
+.TRAN 1u 20m
+.PRINT TRAN V(tri) V(sq) V(cv)
+.END

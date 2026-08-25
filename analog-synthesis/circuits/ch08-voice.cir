@@ -1,0 +1,41 @@
+* ============================================================================
+* ch08-voice.cir — Patch: VCO → VCF → VCA, LFO → VCA CV
+* ============================================================================
+* Minimal subtractive-synthesis voice (no envelope — ADSR is the natural
+* next module; omitted to keep v1 scope tight).
+*
+*   [VCO] --audio--> [VCF] --audio--> [VCA] --audio--> Out
+*     ^                 ^                ^
+*    Pitch CV       Cutoff CV         Level CV
+*                                        ^
+*                                      [LFO]
+*
+* In Qucs-S: either one hierarchical schematic with subcircuits for each
+* module, or four sheets with labeled I/O nets wired together.
+*
+* Transient tip: run ≥ 0.5 s so several LFO cycles are visible. Export
+* the output node and convert to WAV (see simulate.py / python-audio).
+*
+* Natural extensions (not in v1): ADSR envelope into VCA and VCF CV,
+* PWM on the VCO, resonance CV, FM input on the VCO.
+* ============================================================================
+
+.TITLE ch08 subtractive voice patch
+
+VDD vdd 0 DC 12
+VSS vss 0 DC -12
+
+* Behavioral chain matching simulate.py chapter 8
+VVCO vco 0 SIN(0 1 220)
+* Crude 1st-order LP stand-in for the VCF (~800 Hz)
+R1 vco vcf 2k
+C1 vcf 0 100n
+* LFO at 4 Hz → VCA CV 1..5 V
+VLFO lfo 0 SIN(0 1 4)
+* VCA
+BG out 0 V = V(vcf) * ((3 + 2*V(lfo)) / 5)
+RLOAD out 0 10k
+
+.TRAN 10u 1
+.PRINT TRAN V(vco) V(vcf) V(lfo) V(out)
+.END

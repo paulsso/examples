@@ -1,0 +1,46 @@
+* ============================================================================
+* ch03-expo.cir — BJT exponential converter (1 V/octave)
+* ============================================================================
+* Why: pitch is logarithmic. Frequency must double per +1 V CV.
+* Classic NPN expo pair (temperature-matched dual preferred on the bench):
+*
+*   CV --[scaling R network]--> Vb of Q1
+*   Q1/Q2 differential pair → Iout ∝ exp(Vcv / Vt_eff)
+*   Scaling resistors set the effective sensitivity to 18 mV/oct at the
+*   base (Vt*ln(2) ≈ 18 mV) so that 1 V at the CV jack → 1 octave.
+*
+*   Iout = I0 * 2^(CV / 1V)     [ideal teaching model]
+*
+* Temperature compensation: a +3300 ppm/°C tempco resistor in the scaling
+* network cancels Vt's temperature dependence — critical on a real module.
+*
+* ASCII:
+*                 +12V
+*                  |
+*                 [Iref]
+*                  |
+*            +-----+-----+
+*            |           |
+*           Q1          Q2  ← matched NPN (2N3904 or CA3046)
+*            |           |
+*           GND       Iout → to VCO integrator charge current
+*            ^
+*           CV (scaled)
+*
+* Verification: sweep CV 0..5 V; Iout(n+1)/Iout(n) ≈ 2.00 for ΔCV = 1 V.
+* ============================================================================
+
+.TITLE ch03 exponential converter 1V/oct
+
+VDD vdd 0 DC 12
+VSS vss 0 DC -12
+
+* Behavioral expo (teaching stand-in for matched BJT pair + scaling)
+* Iout = 10u * 2^V(cv)
+VCV cv 0 DC 0
+BIout iout 0 I = 10u * (2 ** V(cv))
+Rsens iout 0 1k
+
+.DC VCV 0 5 0.25
+.PRINT DC I(BIout) V(cv)
+.END
