@@ -1,0 +1,35 @@
+* ============================================================================
+* ch07-lfo.cir — Low-frequency oscillator (scaled VCO core)
+* ============================================================================
+* Same integrator + Schmitt topology as the VCO (ch04), but:
+*   - Larger timing capacitor (or smaller charge current)
+*   - Rate range ≈ 0.05 Hz … 30 Hz (sub-audio)
+*   - Outputs: triangle + square (bipolar ±5 V typical)
+*
+* Optional (not required for this course): sample-and-hold driven by the
+* square wave + noise source → stepped random CV.
+*
+*         Rate pot → sets Icharge or R
+*              |
+*              v
+*           [integrator] --> Triangle Out
+*                |
+*            [Schmitt] ----> Square / pulse Out
+*
+* Verification: period T = 1/f matches RC (or I/C) math at min and max rate.
+* ============================================================================
+
+.TITLE ch07 LFO
+
+VDD vdd 0 DC 12
+VSS vss 0 DC -12
+
+* Example: 1 Hz triangle / square
+VTRI tri 0 SIN(0 5 1 0 0 90) 
+* (phase 90° makes a cosine≈triangle approximation for demo; rebuild as
+* true integrator+Schmitt on the Qucs-S schematic)
+VSQ  sq  0 PULSE(-5 5 0 1m 1m 0.5 1)
+
+.TRAN 1m 5
+.PRINT TRAN V(tri) V(sq)
+.END

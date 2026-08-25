@@ -1,0 +1,47 @@
+* ============================================================================
+* ch05-vcf.cir — State-variable VCF (voltage-controlled cutoff)
+* ============================================================================
+* Why SVF for teaching (vs Moog transistor ladder):
+*   - Simultaneous LP / BP / HP outputs
+*   - Resonance (Q) is a single feedback gain — easy to understand
+*   - Two OTA integrators (LM13700) set ωc via Iabc — same expo law as VCO
+* Ladder filters sound different (famous) but need careful biasing and
+* are harder to get converging in SPICE for a first module.
+*
+* Classic analog SVF (Kerwin–Huelsman–Newcomb / Chamberlin):
+*
+*   Audio In --> summer --> [OTA integrator] --> [OTA integrator] --> LP
+*                  ^              |                     |
+*                  |             BP <-------------------+
+*                  +---- Q feedback (resonance)
+*                  +---- HP takeoff
+*
+* Cutoff: f_c = f0 * 2^(CV_cutoff)   [1 V/oct]
+* Resonance: positive feedback around the first integrator; keep Q < ~20
+* in sim to avoid latch-up.
+*
+* Verification: AC sweep → −3 dB near f_c; raise Q → peak at f_c.
+* ============================================================================
+
+.TITLE ch05 state-variable VCF
+
+VDD vdd 0 DC 12
+VSS vss 0 DC -12
+
+VIN in 0 AC 1
+* Placeholder linear SVF using controlled sources (full OTA model in Qucs-S)
+* Second-order LP: H(s) = ωn^2 / (s^2 + s·ωn/Q + ωn^2), fn=1kHz, Q=0.707
+.PARAM wn=6283.2  qq=0.707
+* For a proper schematic: two LM13700 integrators + TL074 summer.
+* Import LM13700 macromodel from Qucs-S library.
+
+RIN in n1 10k
+* Simplified RLC analogy for AC check of cutoff region:
+L1 n1 n2 1.5915
+C1 n2 0 15.915n
+R1 n2 0 1.414k
+* (These L/C give ~1 kHz; replace with OTA integrators on the schematic.)
+
+.AC DEC 40 20 20k
+.PRINT AC V(n2)
+.END

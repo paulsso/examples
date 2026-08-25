@@ -1,0 +1,45 @@
+* ============================================================================
+* ch01-buffer.cir — Unity-gain non-inverting buffer (Eurorack signal conventions)
+* ============================================================================
+* Open in Qucs-S: File → Open → select this netlist, or rebuild from the
+* schematic description below. Backend: ngspice / Xyce / SpiceOpus.
+*
+* ASCII schematic:
+*
+*          +12V
+*           |
+*          [TL072]
+*   Vin----|+ \     Vout
+*          |   >----+---- Vout  (probe)
+*      GND-|− /     |
+*          |       [feedback short: unity gain]
+*         -12V
+*
+* Eurorack conventions encoded in this course:
+*   Rails:     ±12 V
+*   Audio:     ~10 Vpp (±5 V)
+*   CV:        0–10 V (or ±5 V bipolar)
+*   Pitch:     1 V / octave
+*
+* Simulation: AC sweep 10 Hz – 100 kHz, probe V(out)/V(in) → 0 dB flat.
+* ============================================================================
+
+.TITLE ch01 unity-gain buffer
+
+VDD  vdd 0 DC 12
+VSS  vss 0 DC -12
+VIN  vin 0 AC 1 SIN(0 1 1000)
+
+* Ideal op-amp (voltage-controlled voltage source, high gain)
+EOP amp_out 0 vin 0 1e6
+ROUT amp_out vout 10
+RLOAD vout 0 100k
+
+* Unity feedback already implicit: non-inverting input = vin, inverting
+* tied to output through ideal short in the EOP model above... for a
+* proper unity buffer, use:
+EBUF vout 0 vin 0 1
+
+.AC DEC 20 10 100k
+.PRINT AC V(vout)
+.END

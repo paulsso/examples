@@ -1,0 +1,40 @@
+* ============================================================================
+* ch06-vca.cir — Voltage-controlled amplifier (LM13700 OTA)
+* ============================================================================
+* The OTA converts a differential input voltage into an output *current*
+* proportional to the amplifier bias current Iabc:
+*
+*   Iout = gm * (Vin+ − Vin−),   gm ∝ Iabc
+*
+* With linearizing diodes and an on-chip buffer (LM13700), this becomes a
+* clean VCA: CV → Iabc → gain.
+*
+*   Audio+ --> [LM13700] --> buffer --> Audio Out
+*   Audio− --> (ground or balanced)
+*   CV -----> Iabc pin (via resistor / expo or linear converter)
+*
+* Linear CV (this course): gain = CV / 5 V  for CV in [0, 5]
+* Exponential CV (optional): useful for perceptually even loudness fades.
+*
+* Headroom: keep audio ≤ ±5 V on ±12 V rails; soft clip near the rails is
+* musical — hard transistor saturation is usually not.
+*
+* Verification: sweep CV 0→5 V; gain rises linearly; DR ≥ 60 dB to the floor.
+* ============================================================================
+
+.TITLE ch06 OTA VCA
+
+VDD vdd 0 DC 12
+VSS vss 0 DC -12
+
+VIN in 0 SIN(0 1 1000)
+VCV cv 0 DC 2.5
+
+* Behavioral VCA: Vout = Vin * (CV/5)
+BGAIN out 0 V = V(in) * (V(cv) / 5)
+RLOAD out 0 10k
+
+.TRAN 1u 5m
+.PRINT TRAN V(out) V(in) V(cv)
+.DC VCV 0 5 0.25
+.END
