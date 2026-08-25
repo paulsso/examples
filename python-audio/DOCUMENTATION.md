@@ -17,7 +17,7 @@ pure Python  →  vectorized NumPy  →  right dtypes, no copies
 
 ```bash
 make deps   # pip install numpy (the only dependency)
-make run    # run all 12 chapters (~2 s), writes out/*.wav
+make run    # run all 13 chapters (~2 s), writes out/*.wav
 make solve  # chapters 1–3 solution: A# minor Lorenz attractor
 make clean  # remove generated audio
 ```
@@ -42,6 +42,7 @@ Timing numbers below are from one representative run; they vary by machine.
 10. [An effects chain](#chapter-10--an-effects-chain)
 11. [Streaming & the real-time deadline](#chapter-11--streaming--the-real-time-deadline)
 12. [Profiling & the playbook](#chapter-12--profiling--the-playbook)
+13. [FM synthesis](#chapter-13--fm-synthesis)
 
 ---
 
@@ -395,11 +396,59 @@ Beyond this course, the same ideas power the real ecosystem: `scipy.signal`
 (real microphone/speaker streams with exactly Chapter 11's callback model),
 and `numba`/`cython` for the sequential exceptions.
 
+---
+
+## Chapter 13 — FM Synthesis
+
+### `fm_osc(carrier, modulator, index, duration)` / `demo_fm()`
+
+John Chowning's 1973 observation: a *complex spectrum from two sines*.
+Phase-modulate a carrier by a modulator — no wavetable, no filter:
+
+`y = sin(2π · fc · t + I · sin(2π · fm · t))`
+
+Three knobs, all musical:
+
+- **Ratio `fc:fm`**: an integer ratio (4:1, 1:1, 2:1) stacks sidebands on
+  the harmonic series; a non-integer ratio (1.4, 1.414) is inharmonic —
+  bells, struck metal.
+- **Index `I`**: brightness. Roughly `I+1` sidebands on each side of the
+  carrier, at `fc ± k·fm`. Carson's bandwidth rule of thumb:
+  `BW ≈ 2(I+1)fm`.
+- **Time-varying `I`**: the DX7 trick. Envelope the index with the same
+  ADSR as the amplitude and the timbre *follows* loudness — brass gets
+  brighter as it attacks, a bell darkens as it dies.
+
+The formula is one NumPy expression (`index` may be a scalar or a
+per-sample array). Measured on 1 s / 44,100 samples of a stationary
+4:1 tone (`fc=800`, `fm=200`, `I=2.5`): the pure-Python loop vs
+`fm_osc` — tens to hundreds of ×, results identical with `np.allclose`.
+
+Chapter 8's FFT is the spectrum ruler. Energy is measured at the
+predicted bins `fc ± k·fm` (200, 400, 600, 800, 1000, 1200, 1400 Hz)
+rather than by picking the loudest peaks: at `I = 2.5` the carrier
+itself is near a zero of the Bessel function `J0`, so it is *quieter*
+than the first sidebands — a real FM quirk, not a bug. Two sines, a
+harmonic spectrum, on the grid.
+
+Two instruments, both closed-form:
+
+- **`fm_bell`**: ratio 1.4, `I` and amplitude exponential-decay — the
+  classic inharmonic strike. `out/fm_bell.wav`.
+- **`fm_brass`**: 1:1 at A4, `I = 4 · ADSR` — brightness tracks the
+  envelope. `out/fm_brass.wav`.
+
+FM is the algorithmic counterpart of Chapter 8: additive synthesis of the
+same spectrum would sum `I+1` sines weighted by Bessel `Jn(I)`. Two
+sines plus a multiply replace that sum.
+
+---
+
 ## Suggested Course Progression
 
 | Stage | Chapters | Exercises to assign |
 |---|---|---|
 | Foundations | 1–3 | Lorenz `(x,y,z)` detunes three saws around A# minor; stereo interleaved WAV + break-even *n* — [`solutions/strange_attractor_saw.py`](solutions/strange_attractor_saw.py) |
 | Memory | 4–5 | Convert the whole pipeline to float32 end-to-end and measure; find the hidden copy in a given snippet (`x = x[::2] * 2`) |
-| DSP | 6–9 | Add a triangle oscillator; implement biquad filtering with `scipy.signal.lfilter` and compare to the one-pole; window with Hamming and measure the COLA error |
+| DSP | 6–9, 13 | Add a triangle oscillator; implement biquad filtering with `scipy.signal.lfilter` and compare to the one-pole; window with Hamming and measure the COLA error; add a 2-operator feedback FM voice (`I` into its own modulator) |
 | Systems | 10–12 | Add a flanger (modulated delay — needs interpolated reads); drive `StreamingEcho` from a real microphone with `sounddevice`; JIT the one-pole IIR with numba and measure |

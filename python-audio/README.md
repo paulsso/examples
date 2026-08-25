@@ -28,6 +28,7 @@ pure Python  →  vectorized NumPy  →  right dtypes, no copies
 10. **An effects chain** — echo, distortion, tremolo: ~2000× faster than real time
 11. **Streaming & real time** — block processing with state, the 11.6 ms deadline, worst-block analysis
 12. **Profiling & the playbook** — cProfile the hotspot, fix it, and the 5-step optimization order
+13. **FM synthesis** — Chowning: two sines make a spectrum; sidebands via FFT; a bell and a brass note
 
 Every function is documented in [DOCUMENTATION.md](DOCUMENTATION.md), with
 the concepts, the numbers to expect, and pointers to the production
@@ -39,7 +40,7 @@ Requires Python 3.10+ and NumPy (the only dependency).
 
 ```bash
 make deps   # python3 -m pip install -r requirements.txt
-make run    # run all 12 chapters (~2 seconds)
+make run    # run all 13 chapters (~2 seconds)
 make solve  # chapters 1–3 solution: A# minor Lorenz attractor
 make clean  # remove generated audio and caches
 ```
@@ -60,12 +61,14 @@ Each run writes to `out/`:
 | `arpeggio.wav` | Ch 6 | four ADSR-enveloped notes |
 | `noisy.wav` / `denoised.wav` | Ch 9 | the chord drowned in noise, then spectrally gated |
 | `effects.wav` | Ch 10 | the arpeggio through echo → distortion → tremolo |
+| `fm_bell.wav` | Ch 13 | inharmonic FM bell (ratio 1.4, decaying index) |
+| `fm_brass.wav` | Ch 13 | harmonic FM brass: brightness follows the ADSR |
 
 ## Layout
 
 | File | Purpose |
 |---|---|
-| `main.py` | All 12 chapters, one runnable file |
+| `main.py` | All 13 chapters, one runnable file |
 | `solutions/strange_attractor_saw.py` | Chapters 1–3 solution: Lorenz-tuned A# minor saws |
 | `DOCUMENTATION.md` | Written explanation of every chapter and function |
 | `Makefile` | `run`, `solve`, `deps`, `clean` |
