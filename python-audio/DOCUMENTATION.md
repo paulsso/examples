@@ -18,6 +18,7 @@ pure Python  →  vectorized NumPy  →  right dtypes, no copies
 ```bash
 make deps   # pip install numpy (the only dependency)
 make run    # run all 12 chapters (~2 s), writes out/*.wav
+make solve  # chapters 1–3 solution: A# minor Lorenz attractor
 make clean  # remove generated audio
 ```
 
@@ -31,6 +32,7 @@ Timing numbers below are from one representative run; they vary by machine.
 1. [Digital audio in pure Python](#chapter-1--digital-audio-in-pure-python)
 2. [The cost of pure Python](#chapter-2--the-cost-of-pure-python)
 3. [Vectorization with NumPy](#chapter-3--vectorization-with-numpy)
+   - [Foundations project: A# minor Lorenz attractor](#foundations-project--a-minor-lorenz-attractor)
 4. [dtypes & memory](#chapter-4--dtypes--memory)
 5. [Views, copies, in-place](#chapter-5--views-copies-in-place)
 6. [A synthesis toolbox](#chapter-6--a-synthesis-toolbox)
@@ -106,7 +108,69 @@ loop; mixing two tracks (`0.5*a + 0.5*b`) and RMS
 The rule the chapter prints: if you wrote `for sample in signal` in
 Python, you are leaving a ~100× speedup on the table. The rest of the
 course is written in this style — no per-sample Python loops except where
-they are the *point* (Chapters 7, 8, 12).
+they are the *point* (Chapters 7, 8, 12). The chapters 1–3 exercises are
+solved separately in [`solutions/strange_attractor_saw.py`](solutions/strange_attractor_saw.py).
+
+---
+
+## Foundations project — A# minor Lorenz attractor
+
+Lives in [`solutions/strange_attractor_saw.py`](solutions/strange_attractor_saw.py)
+so the 12-chapter course file stays a teaching walkthrough. Run it with
+`make solve` (or `python3 solutions/strange_attractor_saw.py`).
+
+### `demo_attractor_foundations()`
+
+The assigned exercises for chapters 1–3 — a **stereo WAV** (interleaved
+channels) and the **break-even array size** where NumPy beats a Python
+loop — solved as one audible object. Lorenz's 1963 convection model
+(`σ=10`, `ρ=28`, `β=8/3`), the same three coupled ODEs as the
+computational-physics course, is integrated with RK4. The state `(x, y, z)`
+is the tuning CV of three **sawtooth** oscillators parked on an
+**A# minor** triad (equal temperament, A4 = 440 Hz):
+
+- `x` → A#4 = `440 · 2^(1/12)` ≈ 466.16 Hz (root)
+- `y` → C#5 = `440 · 2^(4/12)` ≈ 554.37 Hz (minor third)
+- `z` → F5  = `440 · 2^(8/12)` ≈ 698.46 Hz (perfect fifth; E# = F)
+
+Exponential detune keeps it musical: `f = f0 · 2^(0.35 · u)` with each
+coordinate clipped to roughly `[-1, 1]` against the classic attractor's
+extents. Depth is ±0.35 octaves, so the triad stays recognizable while
+the pitches wander. Lorenz is sampled at a 2 kHz **control rate**
+(2 Lorenz-seconds per audio second — a few wing-flips over a 4 s clip)
+and linearly interpolated up to 44.1 kHz.
+
+RK4 is sequential — each step needs the last — so it stays in a Python
+loop on purpose. That is the honest chapters 1–3 boundary: pay interpreter
+cost where the math forces it; vectorize the oscillators.
+
+**Chapter 1.** 0.75 s of the chord, entirely in lists: RK4, linear
+resample, three phase-accumulator saws (`phase = (phase + f/SR) % 1`,
+sample = `2·phase − 1` — the same identity Chapter 6 later writes as
+`2·((t·f) mod 1) − 1`), then a stereo pan (left = A# + ½ F, right =
+C# + ½ F) so the two Lorenz wings spatialize. Packed with
+`struct.pack("<hh", …)` per frame into `out/asharp_minor_py.wav`. RMS/dBFS
+is reported on the mid mix, same check as the sine demo. The Python saw
+is verified against the NumPy `cumsum` form with `np.allclose`.
+
+**Chapter 2.** `bench()` on 1 s of the same pipeline: RK4 at control
+rate, three Python saws, the pan/mix. The saws dominate; every sample
+pays bytecode. RK4 has to — sample *i* needs sample *i−1*. The saws do not.
+
+**Chapter 3.** After `(x, y, z)` exist as arrays, `np.interp` to audio
+rate and one expression per oscillator:
+
+`saw = 2 · (cumsum(freq / SR) mod 1) − 1`
+
+Four seconds of stereo lands in `out/asharp_minor.wav` via
+`write_wav_stereo` (same clipping and int16 scaling as `write_wav`, two
+channels interleaved `L0, R0, L1, R1, …`). A 1 s saw is timed Python vs
+NumPy — this kernel is `cumsum` plus wrap, more arithmetic than
+Chapter 3's `signal * 0.5`, so the ratio is smaller than that chapter's
+~100× poster. Then a **break-even sweep** over
+`n ∈ {10³, 10⁴, 10⁵, 10⁶}` on a constant-A#4 saw prints the smallest *n*
+where NumPy wins — usually the first size in that list; the lesson is
+that the crossover is a few thousand samples, not millions.
 
 ---
 
@@ -335,7 +399,7 @@ and `numba`/`cython` for the sequential exceptions.
 
 | Stage | Chapters | Exercises to assign |
 |---|---|---|
-| Foundations | 1–3 | Generate a stereo WAV (interleaved channels); measure the break-even array size where NumPy beats a Python loop |
+| Foundations | 1–3 | Lorenz `(x,y,z)` detunes three saws around A# minor; stereo interleaved WAV + break-even *n* — [`solutions/strange_attractor_saw.py`](solutions/strange_attractor_saw.py) |
 | Memory | 4–5 | Convert the whole pipeline to float32 end-to-end and measure; find the hidden copy in a given snippet (`x = x[::2] * 2`) |
 | DSP | 6–9 | Add a triangle oscillator; implement biquad filtering with `scipy.signal.lfilter` and compare to the one-pole; window with Hamming and measure the COLA error |
 | Systems | 10–12 | Add a flanger (modulated delay — needs interpolated reads); drive `StreamingEcho` from a real microphone with `sounddevice`; JIT the one-pole IIR with numba and measure |

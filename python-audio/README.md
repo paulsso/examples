@@ -40,6 +40,7 @@ Requires Python 3.10+ and NumPy (the only dependency).
 ```bash
 make deps   # python3 -m pip install -r requirements.txt
 make run    # run all 12 chapters (~2 seconds)
+make solve  # chapters 1–3 solution: A# minor Lorenz attractor
 make clean  # remove generated audio and caches
 ```
 
@@ -53,6 +54,8 @@ Each run writes to `out/`:
 | File | Made by | What you hear |
 |---|---|---|
 | `tone.wav` | Ch 1 | a 440 Hz sine, built sample-by-sample |
+| `asharp_minor_py.wav` | `make solve` | 0.75 s A# minor Lorenz chord, packed stereo by hand |
+| `asharp_minor.wav` | `make solve` | 4 s of the same chord, vectorized saws — *listen to this* |
 | `chord.wav` | Ch 6 | an A-major triad (three mixed sines) |
 | `arpeggio.wav` | Ch 6 | four ADSR-enveloped notes |
 | `noisy.wav` / `denoised.wav` | Ch 9 | the chord drowned in noise, then spectrally gated |
@@ -63,6 +66,7 @@ Each run writes to `out/`:
 | File | Purpose |
 |---|---|
 | `main.py` | All 12 chapters, one runnable file |
+| `solutions/strange_attractor_saw.py` | Chapters 1–3 solution: Lorenz-tuned A# minor saws |
 | `DOCUMENTATION.md` | Written explanation of every chapter and function |
-| `Makefile` | `run`, `deps`, `clean` |
+| `Makefile` | `run`, `solve`, `deps`, `clean` |
 | `requirements.txt` | numpy |
