@@ -30,6 +30,7 @@
 #    10. An effects chain             — echo, distortion, tremolo
 #    11. Streaming & real time       — block processing, the deadline
 #    12. Profiling & the playbook    — cProfile, then fix the hotspot
+#    13. FM synthesis                — Chowning: two sines, a spectrum
 #
 #  Requires: Python 3.10+, NumPy. Run: `make run` (or python3 main.py).
 #  Timing numbers vary per machine/run; the RATIOS are the lesson.
@@ -650,6 +651,93 @@ def demo_profiling():
 
 
 # ===========================================================================
+# CHAPTER 13 — FM SYNTHESIS
+# ===========================================================================
+# Chowning (1973): a complex spectrum from two sines. Phase-modulate a
+# carrier by a modulator — one expression, no wavetables, no filters:
+#     y = sin(2π·fc·t + I · sin(2π·fm·t))
+# The carrier:modulator ratio picks harmonic vs inharmonic; the index I
+# picks brightness (≈ I+1 audible sidebands at fc ± k·fm). The DX7
+# trick: envelope I so timbre follows loudness. Fully vectorizable.
+
+def fm_osc(carrier, modulator, index, duration, sr=SR, amp=1.0):
+    """Simple FM: sin(2π fc t + I sin(2π fm t)). `index` may be a scalar
+    or a per-sample array (time-varying modulation depth)."""
+    t = np.arange(int(sr * duration)) / sr
+    return amp * np.sin(2.0 * np.pi * carrier * t
+                        + index * np.sin(2.0 * np.pi * modulator * t))
+
+
+def fm_osc_python(carrier, modulator, index, n, sr=SR):
+    """The same formula, one sample at a time — Chapter 2's tax, again."""
+    out = [0.0] * n
+    for i in range(n):
+        t = i / sr
+        out[i] = math.sin(2.0 * math.pi * carrier * t
+                          + index * math.sin(2.0 * math.pi * modulator * t))
+    return out
+
+
+def fm_bell(duration=2.0, sr=SR):
+    """Inharmonic bell: ratio 1.4, I and amplitude both decay."""
+    n = int(sr * duration)
+    t = np.arange(n) / sr
+    fc, ratio = 200.0, 1.4
+    I = 8.0 * np.exp(-t / 0.6)
+    amp = np.exp(-t / 0.8)
+    return amp * np.sin(2.0 * np.pi * fc * t
+                        + I * np.sin(2.0 * np.pi * fc * ratio * t))
+
+
+def fm_brass(duration=1.5, sr=SR):
+    """Harmonic brass-ish: 1:1 ratio, I tracks the ADSR (the DX7 trick)."""
+    n = int(sr * duration)
+    t = np.arange(n) / sr
+    env = adsr(n, attack=0.08, decay=0.12, sustain=0.55, release=0.25)
+    I = 4.0 * env
+    return 0.8 * env * np.sin(2.0 * np.pi * A4 * t
+                              + I * np.sin(2.0 * np.pi * A4 * t))
+
+
+def demo_fm():
+    duration = 1.0
+    n = int(SR * duration)
+    fc, fm, I = 800.0, 200.0, 2.5          # 4:1 harmonic, a few sidebands
+
+    py_ms, py_out = bench(lambda: fm_osc_python(fc, fm, I, n), repeat=1)
+    np_ms, tone = bench(lambda: fm_osc(fc, fm, I, duration))
+    match = np.allclose(py_out, tone, atol=1e-10)
+    print("Chowning FM: y = sin(2π fc t + I sin(2π fm t))")
+    print(f"  {duration:.0f}s  fc={fc:.0f} Hz  fm={fm:.0f} Hz  I={I} "
+          f"(ratio {fc / fm:.0f}:1, harmonic)")
+    print(f"  pure Python : {py_ms:7.1f} ms")
+    print(f"  vectorized  : {np_ms:7.2f} ms  "
+          f"(~{py_ms / max(np_ms, 1e-9):.0f}x, match={match})")
+    print(f"  Carson bandwidth ~ 2(I+1)fm = {2.0 * (I + 1.0) * fm:.0f} Hz")
+
+    # Sidebands sit at fc ± k·fm — Chapter 8's FFT as a spectrum ruler.
+    # I=2.5 sits near a zero of J0, so the *carrier* is the quiet one.
+    big_n = 32768
+    spectrum = np.abs(np.fft.rfft(tone[:big_n]))
+    freqs = np.fft.rfftfreq(big_n, 1.0 / SR)
+    print("  sidebands fc ± k·fm (k = -3..3):")
+    for k in range(-3, 4):
+        f = fc + k * fm
+        b = int(round(f * big_n / SR))
+        print(f"    k={k:+d}  {freqs[b]:7.1f} Hz  mag={spectrum[b]:.0f}"
+              f"{'  (carrier, J0(I)≈0)' if k == 0 else ''}")
+    print("  energy sits on the predicted grid — two sines, a spectrum")
+
+    ms_bell, bell = bench(lambda: fm_bell(2.0))
+    brass = fm_brass()
+    write_wav(os.path.join(OUT_DIR, "fm_bell.wav"), bell)
+    write_wav(os.path.join(OUT_DIR, "fm_brass.wav"), brass)
+    print(f"inharmonic bell (ratio 1.4, decaying I) in {ms_bell:.2f} ms")
+    print("brass: integer ratio, I follows ADSR — brightness tracks loudness")
+    print(f"wrote {OUT_DIR}/fm_bell.wav and {OUT_DIR}/fm_brass.wav")
+
+
+# ===========================================================================
 # MAIN
 # ===========================================================================
 
@@ -692,6 +780,9 @@ def main():
 
     chapter("12. Profiling & the playbook")
     demo_profiling()
+
+    chapter("13. FM synthesis")
+    demo_fm()
 
     print("\nAll chapters completed successfully.")
     print(f"listen to the results: {OUT_DIR}/*.wav")
